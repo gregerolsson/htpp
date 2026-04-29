@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>htpp &mdash; C++ HTML DSL</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --fg: #1a1a1a;
+    --muted: #666;
+    --border: #ddd;
+    --accent: #2563eb;
+    --accent-light: #dbeafe;
+    --code-bg: #f3f4f6;
+    --code-border: #e5e7eb;
+    --pre-bg: #f6f8fa;
+    --pre-fg: #1f2328;
+    --pre-border: #d1d9e0;
+    --kw: #cf222e;
+    --str: #0a3069;
+    --cmt: #6e7781;
+    --fn: #8250df;
+    --mac: #953800;
+    --num: #0550ae;
+    --max-w: 52rem;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--fg);
+    line-height: 1.65; font-size: 16px;
+  }
+
+  /* --- Hero --- */
+  .hero {
+    background: var(--bg);
+    color: var(--fg);
+    padding: 4rem 1.5rem 3rem;
+    text-align: center;
+  }
+  .hero h1 { font-size: 3rem; letter-spacing: -0.03em; font-weight: 800; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { max-width: 36rem; margin: 1rem auto 0; color: var(--muted); font-size: 1.15rem; }
+  .github-link {
+    display: inline-block; margin-top: 1rem; color: var(--muted);
+    transition: color .15s;
+  }
+  .github-link:hover { color: var(--fg); }
+
+  .badges { display: flex; gap: .5rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap; }
+  .badge {
+    display: inline-block; font-size: .8rem; font-weight: 600;
+    padding: .25rem .65rem; border-radius: 9999px;
+    background: var(--accent-light); color: var(--accent); border: 1px solid #bfdbfe;
+  }
+
+  /* --- Layout --- */
+  .wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 1.5rem; }
+  section { padding: 3rem 0; }
+  section + section { border-top: 1px solid var(--border); }
+  h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 1rem; letter-spacing: -0.02em; }
+  h3 { font-size: 1.15rem; font-weight: 600; margin: 1.5rem 0 .5rem; }
+  p { margin-bottom: 1rem; }
+  ul, ol { margin: 0 0 1rem 1.5rem; }
+  li { margin-bottom: .35rem; }
+
+  /* --- Code --- */
+  code {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", Menlo, monospace;
+    font-size: .88em; background: var(--code-bg); padding: .15em .35em;
+    border-radius: 4px; border: 1px solid var(--code-border);
+  }
+  pre {
+    background: var(--pre-bg); color: var(--pre-fg);
+    padding: 1.25rem 1.5rem; border-radius: 8px;
+    overflow-x: auto; margin-bottom: 1.25rem; font-size: .88rem;
+    line-height: 1.55; border: 1px solid var(--pre-border);
+  }
+  pre code {
+    background: none; border: none; padding: 0; font-size: inherit;
+  }
+
+  /* syntax highlighting */
+  .kw  { color: var(--kw); }
+  .str { color: var(--str); }
+  .cmt { color: var(--cmt); font-style: italic; }
+  .fn  { color: var(--fn); }
+  .mac { color: var(--mac); }
+  .num { color: var(--num); }
+
+  /* --- Table --- */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; font-size: .92rem; }
+  th, td { text-align: left; padding: .55rem .75rem; border: 1px solid var(--border); }
+  th { background: var(--code-bg); font-weight: 600; }
+  td code { font-size: .82em; }
+
+  /* --- Callout --- */
+  .callout {
+    background: var(--accent-light); border-left: 4px solid var(--accent);
+    padding: .85rem 1rem; border-radius: 0 6px 6px 0; margin-bottom: 1.25rem;
+    font-size: .93rem;
+  }
+  .callout strong { color: var(--accent); }
+
+  .warn {
+    background: #fef3c7; border-left-color: #f59e0b;
+  }
+  .warn strong { color: #b45309; }
+
+  /* --- Footer --- */
+  footer { text-align: center; padding: 2rem 1rem; color: var(--muted); font-size: .85rem; }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* --- Responsive --- */
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 2rem; }
+    pre { font-size: .8rem; padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================ Hero -->
+<div class="hero">
+  <h1><span>&lt;</span>htpp<span>&gt;</span></h1>
+  <p>A single-header C++ HTML DSL. RAII tags stream directly to <code>std::ostream</code> &mdash; no AST, no intermediate buffer. HTML structure is C++ scope structure.</p>
+  <a class="github-link" href="https://github.com/gregerolsson/htpp" aria-label="GitHub repository">
+    <svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+  </a>
+  <div class="badges">
+    <span class="badge">C++20</span>
+    <span class="badge">Header-only</span>
+    <span class="badge">Zero allocations</span>
+    <span class="badge">htmx-ready</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ========================================================== Quick start -->
+<section>
+<h2>Quick start</h2>
+<p>Copy <code>htpp.hpp</code> into your project. There are no dependencies beyond the standard library.</p>
+
+<pre><code><span class="cmt">// hello.cpp</span>
+<span class="kw">#include</span> <span class="str">"htpp.hpp"</span>
+<span class="kw">#include</span> <span class="str">&lt;iostream&gt;</span>
+
+<span class="kw">using namespace</span> htpp::attr;
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="kw">auto</span>&amp; os = std::cout;
+
+    <span class="mac">HT_DOCTYPE</span>();
+    <span class="mac">HT_HTML</span>(lang = <span class="str">"en"</span>) {
+        <span class="mac">HT_HEAD</span>() {
+            <span class="mac">HT_META</span>(charset = <span class="str">"UTF-8"</span>);
+            <span class="mac">HT_TITLE</span>() { os &lt;&lt; <span class="str">"Hello"</span>; }
+        }
+        <span class="mac">HT_BODY</span>() {
+            <span class="mac">HT_H1</span>() { os &lt;&lt; <span class="str">"Hello, world!"</span>; }
+        }
+    }
+}</code></pre>
+
+<p>Compile and run:</p>
+<pre><code>clang++ -std=c++23 -o hello hello.cpp
+./hello</code></pre>
+</section>
+
+<!-- ============================================================ How it works -->
+<section>
+<h2>How it works</h2>
+<p>htpp has three layers, each building on the one below:</p>
+
+<h3>1. Tag layer</h3>
+<p><code>htpp::tag</code> is an RAII wrapper. Its constructor writes <code>&lt;name attrs&gt;</code> to the stream; its destructor writes <code>&lt;/name&gt;</code>. Self-closing elements use <code>htpp::void_tag</code> instead, which writes <code>&lt;name attrs /&gt;</code> in the constructor only.</p>
+<p>Because the closing tag is emitted by the destructor, HTML nesting is enforced by C++ scope nesting. You literally cannot forget to close a tag.</p>
+
+<h3>2. Attribute layer</h3>
+<p>Attributes are lightweight value objects, each with its own <code>operator&lt;&lt;</code> that emits <code> key="value"</code> (with a leading space). The tag constructor folds its parameter pack into the stream:</p>
+<pre><code>(os &lt;&lt; ... &lt;&lt; attrs);</code></pre>
+<p>There is no central attribute struct. Five flavours exist:</p>
+
+<table>
+  <thead><tr><th>Flavour</th><th>Syntax</th><th>Example output</th></tr></thead>
+  <tbody>
+    <tr><td>Static key + value</td><td><code>class_ = "flex"</code></td><td><code> class="flex"</code></td></tr>
+    <tr><td>Boolean</td><td><code>disabled</code></td><td><code> disabled</code></td></tr>
+    <tr><td>Dynamic key</td><td><code>"data-x"_a = "1"</code></td><td><code> data-x="1"</code></td></tr>
+    <tr><td>Conditional</td><td><code>attr_if(flag, disabled)</code></td><td><code> disabled</code> or nothing</td></tr>
+    <tr><td>Custom</td><td>any streamable type</td><td>whatever it emits</td></tr>
+  </tbody>
+</table>
+
+<h3>3. Macro layer</h3>
+<p>Macros like <code>HT_DIV(...)</code> wrap the tag in an <code>if (init; true)</code> statement so a trailing <code>{ ... }</code> block becomes the element's children. Void-element macros (<code>HT_BR()</code>, <code>HT_IMG(...)</code>, etc.) expand to an expression and take a trailing <code>;</code> instead.</p>
+</section>
+
+<!-- ============================================================ Attributes -->
+<section>
+<h2>Attributes</h2>
+
+<h3>Predeclared keys</h3>
+<p>After <code>using namespace htpp::attr;</code> the common HTML attributes are in scope as <code>constexpr</code> objects. Use them with <code>=</code> to set a value:</p>
+<pre><code><span class="mac">HT_A</span>(href = <span class="str">"/about"</span>, class_ = <span class="str">"link"</span>) { os &lt;&lt; <span class="str">"About"</span>; }</code></pre>
+
+<p>Identifiers that collide with C++ keywords have a trailing underscore:</p>
+<table>
+  <thead><tr><th>C++ name</th><th>Rendered as</th></tr></thead>
+  <tbody>
+    <tr><td><code>class_</code></td><td><code>class</code></td></tr>
+    <tr><td><code>for_</code></td><td><code>for</code></td></tr>
+    <tr><td><code>default_</code></td><td><code>default</code></td></tr>
+  </tbody>
+</table>
+
+<p>Hyphenated HTML names use underscores in C++:</p>
+<table>
+  <thead><tr><th>C++ name</th><th>Rendered as</th></tr></thead>
+  <tbody>
+    <tr><td><code>aria_label</code></td><td><code>aria-label</code></td></tr>
+    <tr><td><code>hx_post</code></td><td><code>hx-post</code></td></tr>
+    <tr><td><code>http_equiv</code></td><td><code>http-equiv</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Boolean attributes</h3>
+<p>Boolean attributes are bare names, not assignments. Mix them freely with key-value attributes:</p>
+<pre><code><span class="mac">HT_INPUT</span>(type = <span class="str">"checkbox"</span>, checked, required);</code></pre>
+
+<h3>Dynamic / long-tail attributes</h3>
+<p>For one-off or project-specific attribute names, use the <code>_a</code> user-defined literal (requires <code>using namespace htpp::attr_literals;</code>):</p>
+<pre><code><span class="mac">HT_BUTTON</span>(<span class="str">"data-action"</span>_a = <span class="str">"save"</span>,
+          <span class="str">"data-confirm"</span>_a = <span class="str">"Are you sure?"</span>) {
+    os &lt;&lt; <span class="str">"Save"</span>;
+}</code></pre>
+
+<h3>Conditional attributes</h3>
+<p><code>attr_if(condition, attribute)</code> emits the attribute only when the condition is true:</p>
+<pre><code><span class="mac">HT_BUTTON</span>(class_ = <span class="str">"btn"</span>,
+          attr_if(is_submitting, disabled)) {
+    os &lt;&lt; <span class="str">"Submit"</span>;
+}</code></pre>
+
+<h3>Adding a new attribute</h3>
+<p>One line in <code>htpp::attr</code>:</p>
+<pre><code><span class="kw">inline constexpr</span> attr_key&lt;<span class="str">"my-attr"</span>&gt; my_attr;</code></pre>
+</section>
+
+<!-- ============================================================ Components -->
+<section>
+<h2>Components</h2>
+<p><code>HT_COMPONENT</code> declares a plain function with <code>std::ostream&amp; os</code> as the first parameter. Compose them like regular function calls:</p>
+<pre><code><span class="mac">HT_COMPONENT</span>(<span class="fn">card</span>, std::string_view heading, std::string_view body) {
+    <span class="mac">HT_DIV</span>(class_ = <span class="str">"rounded shadow p-4"</span>) {
+        <span class="mac">HT_H2</span>(class_ = <span class="str">"font-bold"</span>) { <span class="mac">HT_TEXT</span>(heading); }
+        <span class="mac">HT_P</span>()                     { <span class="mac">HT_TEXT</span>(body); }
+    }
+}
+
+<span class="cmt">// Call site (os must be in scope):</span>
+card(os, <span class="str">"Title"</span>, <span class="str">"Description text."</span>);</code></pre>
+
+<p>Components are just functions. Use loops, conditionals, and other components inside them freely:</p>
+<pre><code><span class="mac">HT_COMPONENT</span>(<span class="fn">user_table</span>,
+    <span class="kw">const</span> std::vector&lt;std::pair&lt;std::string, std::string&gt;&gt;&amp; users)
+{
+    <span class="mac">HT_TABLE</span>(class_ = <span class="str">"w-full"</span>) {
+        <span class="mac">HT_THEAD</span>() {
+            <span class="mac">HT_TR</span>() {
+                <span class="mac">HT_TH</span>() { os &lt;&lt; <span class="str">"Name"</span>; }
+                <span class="mac">HT_TH</span>() { os &lt;&lt; <span class="str">"Role"</span>; }
+            }
+        }
+        <span class="mac">HT_TBODY</span>() {
+            <span class="kw">for</span> (<span class="kw">auto</span>&amp; [user_name, user_role] : users) {
+                <span class="mac">HT_TR</span>() {
+                    <span class="mac">HT_TD</span>() { <span class="mac">HT_TEXT</span>(user_name); }
+                    <span class="mac">HT_TD</span>() { <span class="mac">HT_TEXT</span>(user_role); }
+                }
+            }
+        }
+    }
+}</code></pre>
+</section>
+
+<!-- ============================================================ Escaping -->
+<section>
+<h2>Text &amp; escaping</h2>
+<table>
+  <thead><tr><th>Macro</th><th>Escapes?</th><th>Use for</th></tr></thead>
+  <tbody>
+    <tr><td><code>HT_TEXT(expr)</code></td><td>Yes (<code>&amp; &lt; &gt; " '</code>)</td><td>User-supplied content</td></tr>
+    <tr><td><code>HT_RAW(expr)</code></td><td>No</td><td>Trusted / pre-escaped HTML</td></tr>
+    <tr><td><code>os &lt;&lt; "..."</code></td><td>No</td><td>String literals you control</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+<strong>Safety note:</strong> Attribute <em>values</em> are automatically escaped by <code>attr_set</code> and <code>attr_dyn</code>. Dynamic attribute <em>names</em> (via <code>_a</code>) are validated at runtime against <code>[a-zA-Z_][a-zA-Z0-9\-:_.]*</code> and will throw <code>std::invalid_argument</code> on violation &mdash; but validation is not escaping, so don&rsquo;t rely on it to sanitise arbitrary user input as attribute names.
+</div>
+
+<div class="callout warn">
+<strong>Event handler attributes</strong> (<code>onclick</code>, <code>onchange</code>, etc.) are intentionally not predeclared. Their values are JavaScript, not HTML &mdash; the entity escaping applied to attribute values is the wrong defence for a JS context. Prefer <code>addEventListener</code> in a <code>&lt;script&gt;</code> block. If you must use an inline handler, <code>"onclick"_a = "..."</code> still works.
+</div>
+</section>
+
+<!-- ============================================================ Gotchas -->
+<section>
+<h2>Things to know</h2>
+
+<div class="callout warn">
+<strong>os must be in scope.</strong> Every <code>HT_*</code> macro references a local variable named <code>os</code> of type <code>std::ostream&amp;</code>. Use <code>HT_COMPONENT</code> to get it automatically, or declare it yourself.
+</div>
+
+<h3>Void tags need a semicolon, not braces</h3>
+<pre><code><span class="mac">HT_BR</span>();            <span class="cmt">// correct</span>
+<span class="mac">HT_IMG</span>(src = <span class="str">"a.png"</span>);  <span class="cmt">// correct</span>
+<span class="mac">HT_BR</span>() { }         <span class="cmt">// WRONG &mdash; won't compile</span></code></pre>
+
+<h3>Always use braces after tag macros</h3>
+<p>Tag macros expand to <code>if (...; true)</code>. Without braces, only the next statement becomes the body, which usually produces wrong HTML. Use <code>{}</code> for intentionally empty elements:</p>
+<pre><code><span class="mac">HT_TEXTAREA</span>(name = <span class="str">"msg"</span>) {}  <span class="cmt">// correct: empty &lt;textarea&gt;&lt;/textarea&gt;</span></code></pre>
+
+<h3>Watch for variable shadowing</h3>
+<p>After <code>using namespace htpp::attr;</code>, common identifiers like <code>name</code>, <code>id</code>, <code>value</code>, <code>type</code>, <code>min</code>, <code>max</code>, <code>title</code>, <code>label</code>, <code>form</code>, <code>start</code>, <code>step</code> become visible and will shadow local variables. Rename your locals or scope the <code>using</code> directive.</p>
+
+<h3>Attribute values are string_view</h3>
+<p>They don't own memory. Passing a temporary <code>std::string</code> is fine because the entire call is a single full-expression, but don't store an attribute object for later use if it captures a temporary.</p>
+</section>
+
+<!-- ============================================================ htmx -->
+<section>
+<h2>htmx support</h2>
+<p>All common htmx attributes are predeclared:</p>
+<pre><code><span class="mac">HT_FORM</span>(hx_post = <span class="str">"/api/users"</span>,
+        hx_target = <span class="str">"#result"</span>,
+        hx_swap = <span class="str">"innerHTML"</span>) {
+    <span class="mac">HT_INPUT</span>(type = <span class="str">"text"</span>, name = <span class="str">"username"</span>);
+    <span class="mac">HT_BUTTON</span>(type = <span class="str">"submit"</span>) { os &lt;&lt; <span class="str">"Create"</span>; }
+}</code></pre>
+
+<p>Available: <code>hx_get</code>, <code>hx_post</code>, <code>hx_put</code>, <code>hx_delete</code>, <code>hx_patch</code>, <code>hx_target</code>, <code>hx_swap</code>, <code>hx_trigger</code>, <code>hx_include</code>, <code>hx_indicator</code>, <code>hx_select</code>, <code>hx_push_url</code>, <code>hx_vals</code>, <code>hx_headers</code>, <code>hx_confirm</code>, <code>hx_boost</code>.</p>
+</section>
+
+<!-- ============================================================ Macro ref -->
+<section>
+<h2>Macro reference</h2>
+
+<h3>Block elements (use with <code>{ ... }</code>)</h3>
+<table>
+  <thead><tr><th>Category</th><th>Macros</th></tr></thead>
+  <tbody>
+    <tr><td>Document</td><td><code>HT_HTML</code> <code>HT_HEAD</code> <code>HT_BODY</code> <code>HT_TITLE</code> <code>HT_STYLE</code> <code>HT_SCRIPT</code></td></tr>
+    <tr><td>Sections</td><td><code>HT_DIV</code> <code>HT_SPAN</code> <code>HT_MAIN</code> <code>HT_HEADER</code> <code>HT_FOOTER</code> <code>HT_SECTION</code> <code>HT_ARTICLE</code> <code>HT_ASIDE</code> <code>HT_NAV</code></td></tr>
+    <tr><td>Headings</td><td><code>HT_H1</code> &ndash; <code>HT_H6</code></td></tr>
+    <tr><td>Text</td><td><code>HT_P</code> <code>HT_A</code> <code>HT_STRONG</code> <code>HT_EM</code> <code>HT_CODE</code> <code>HT_PRE</code> <code>HT_BLOCKQUOTE</code> <code>HT_LABEL</code> <code>HT_BUTTON</code></td></tr>
+    <tr><td>Lists</td><td><code>HT_UL</code> <code>HT_OL</code> <code>HT_LI</code> <code>HT_DL</code> <code>HT_DT</code> <code>HT_DD</code></td></tr>
+    <tr><td>Tables</td><td><code>HT_TABLE</code> <code>HT_THEAD</code> <code>HT_TBODY</code> <code>HT_TFOOT</code> <code>HT_TR</code> <code>HT_TH</code> <code>HT_TD</code></td></tr>
+    <tr><td>Forms</td><td><code>HT_FORM</code> <code>HT_SELECT</code> <code>HT_OPTION</code> <code>HT_TEXTAREA</code> <code>HT_FIELDSET</code> <code>HT_LEGEND</code></td></tr>
+    <tr><td>Misc</td><td><code>HT_FIGURE</code> <code>HT_FIGCAPTION</code> <code>HT_DETAILS</code> <code>HT_SUMMARY</code></td></tr>
+  </tbody>
+</table>
+
+<h3>Void elements (use with <code>;</code>)</h3>
+<p><code>HT_DOCTYPE()</code> <code>HT_META(...)</code> <code>HT_LINK(...)</code> <code>HT_BR()</code> <code>HT_HR()</code> <code>HT_IMG(...)</code> <code>HT_INPUT(...)</code></p>
+
+<h3>Content</h3>
+<p><code>HT_TEXT(expr)</code> &mdash; escaped output. <code>HT_RAW(expr)</code> &mdash; raw output.</p>
+<p><code>HT_COMPONENT(name, ...)</code> &mdash; declares a component function.</p>
+</section>
+
+<!-- ============================================================ Full example -->
+<section>
+<h2>Full example</h2>
+<pre><code><span class="kw">#include</span> <span class="str">"htpp.hpp"</span>
+<span class="kw">#include</span> <span class="str">&lt;iostream&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;vector&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;string&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;utility&gt;</span>
+
+<span class="kw">using namespace</span> htpp::attr;
+<span class="kw">using namespace</span> htpp::attr_literals;
+
+<span class="mac">HT_COMPONENT</span>(<span class="fn">nav_link</span>, std::string_view url, std::string_view text) {
+    <span class="mac">HT_A</span>(class_ = <span class="str">"px-3 py-2 hover:underline"</span>, href = url) {
+        <span class="mac">HT_TEXT</span>(text);
+    }
+}
+
+<span class="mac">HT_COMPONENT</span>(<span class="fn">card</span>, std::string_view heading, std::string_view body) {
+    <span class="mac">HT_DIV</span>(class_ = <span class="str">"rounded shadow p-4 bg-white"</span>) {
+        <span class="mac">HT_H2</span>(class_ = <span class="str">"text-lg font-bold mb-2"</span>) { <span class="mac">HT_TEXT</span>(heading); }
+        <span class="mac">HT_P</span> (class_ = <span class="str">"text-gray-600"</span>)          { <span class="mac">HT_TEXT</span>(body); }
+    }
+}
+
+<span class="mac">HT_COMPONENT</span>(<span class="fn">page</span>, <span class="kw">const</span> std::string&amp; username, <span class="kw">bool</span> is_submitting) {
+    <span class="mac">HT_DOCTYPE</span>();
+    <span class="mac">HT_HTML</span>(lang = <span class="str">"en"</span>) {
+        <span class="mac">HT_HEAD</span>() {
+            <span class="mac">HT_META</span>(charset = <span class="str">"UTF-8"</span>);
+            <span class="mac">HT_TITLE</span>() { os &lt;&lt; <span class="str">"htpp demo"</span>; }
+        }
+        <span class="mac">HT_BODY</span>(class_ = <span class="str">"bg-gray-50"</span>) {
+            <span class="mac">HT_HEADER</span>(class_ = <span class="str">"bg-blue-600 text-white p-4"</span>) {
+                nav_link(os, <span class="str">"/"</span>, <span class="str">"Home"</span>);
+                nav_link(os, <span class="str">"/about"</span>, <span class="str">"About"</span>);
+            }
+            <span class="mac">HT_MAIN</span>(class_ = <span class="str">"max-w-3xl mx-auto mt-8 px-4"</span>) {
+                <span class="mac">HT_H1</span>() {
+                    os &lt;&lt; <span class="str">"Welcome, "</span>;
+                    <span class="mac">HT_TEXT</span>(username);  <span class="cmt">// safely escaped</span>
+                }
+                <span class="mac">HT_DIV</span>(class_ = <span class="str">"grid grid-cols-2 gap-4"</span>) {
+                    card(os, <span class="str">"Posts"</span>, <span class="str">"12 published."</span>);
+                    card(os, <span class="str">"Comments"</span>, <span class="str">"3 pending."</span>);
+                }
+                <span class="mac">HT_FORM</span>(action = <span class="str">"/send"</span>, method = <span class="str">"post"</span>) {
+                    <span class="mac">HT_TEXTAREA</span>(name = <span class="str">"message"</span>, rows = <span class="str">"4"</span>) {}
+                    <span class="mac">HT_BUTTON</span>(type = <span class="str">"submit"</span>,
+                              <span class="str">"data-action"</span>_a = <span class="str">"send"</span>,
+                              attr_if(is_submitting, disabled)) {
+                        os &lt;&lt; <span class="str">"Send"</span>;
+                    }
+                }
+            }
+        }
+    }
+}
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    page(std::cout, <span class="str">"Alice &amp; \"friends\""</span>, <span class="kw">false</span>);
+}</code></pre>
+</section>
+
+</div>
+
+<footer>
+  htpp &mdash; <a href="https://github.com/gregerolsson/htpp">source on GitHub</a>
+</footer>
+
+</body>
+</html>
