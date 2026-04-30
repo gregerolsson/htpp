@@ -15,16 +15,29 @@ using namespace htpp::attr_literals;   // "data-x"_a = "..."
 // Attributes can appear in any order at the call site.
 // ---------------------------------------------------------------------------
 
-auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
-    return {os, "a",
-            class_ = "px-3 py-2 hover:underline",
-            href = url};
+HT_COMPONENT(nav_link, std::string_view url) {
+    HT_A(class_ = "px-3 py-2 hover:underline", href = url) {
+        HT_SLOT();
+    }
 }
 
-auto card(std::ostream& os, std::string_view heading) -> htpp::tag {
-    htpp::tag div(os, "div", class_ = "rounded shadow p-4 bg-white");
-    HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
-    return div;
+HT_COMPONENT(card, std::string_view heading) {
+    HT_DIV(class_ = "rounded shadow p-4 bg-white") {
+        HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
+        HT_SLOT();
+    }
+}
+
+// Demonstrates HT_SLOT positioned between sibling content — children land in
+// the middle of the rendered output, not just at the end.
+struct demo_card_props { std::string_view title; };
+
+HT_COMPONENT(demo_card, const demo_card_props& props) {
+    HT_DIV() {
+        HT_H2() { HT_TEXT(props.title); }
+        HT_SLOT();
+        HT_P() { os << "Goodbye"; }
+    }
 }
 
 HT_COMPONENT(user_table,
@@ -129,6 +142,12 @@ HT_COMPONENT(page, const std::string& username, bool is_submitting) {
 
 auto main() -> int {
     page(std::cout, "Alice & \"friends\"", /*is_submitting=*/false);
+    std::cout << '\n';
+
+    auto& os = std::cout;
+    HT_USE(demo_card, {.title = "Hello"}) {
+        HT_H3() { os << "This should end up at the HT_SLOT in the nearest HT_USE()"; }
+    }
     std::cout << '\n';
     return 0;
 }

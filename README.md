@@ -177,45 +177,55 @@ HT_COMPONENT(user_table,
 
 ## Components with children
 
-Plain `HT_COMPONENT` functions can't accept a children block — every "slot" has to be a parameter. To wrap user-supplied content, define a function that returns an `htpp::tag` (or a class deriving from it) and invoke it with `HT_USE(name, args...) { ... }`.
-
-### Simple wrapper
-
-For a component that just wraps children in a single tag, return the tag directly:
+Every `HT_COMPONENT` carries a hidden trailing parameter — `std::string_view _slot`, defaulted to empty. Call `HT_SLOT()` anywhere inside the body to splice the children at that point. Invoke with children via `HT_USE(name, args...) { ...children... }`.
 
 ```cpp
-auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
-    return {os, "a", class_ = "px-3 py-2 hover:underline", href = url};
-}
-
-// call site:
-HT_USE(nav_link, "/about") { HT_TEXT("About"); }
-```
-
-The brace-init `return {os, "a", ...};` is a prvalue, so mandatory copy elision applies — no move, no allocation.
-
-### Composite (prologue inside the wrapping tag)
-
-If the component needs to emit content *before* children but *inside* the wrapping element, declare the wrapping tag as a local, emit the prologue, then return the local:
-
-```cpp
-auto card(std::ostream& os, std::string_view heading) -> htpp::tag {
-    htpp::tag div(os, "div", class_ = "rounded shadow p-4 bg-white");
-    HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
-    return div;   // moves; the moved-from local's destructor is a no-op
+HT_COMPONENT(card, std::string_view heading) {
+    HT_DIV(class_ = "rounded shadow p-4 bg-white") {
+        HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
+        HT_SLOT();                       // children land here, if any
+    }
 }
 
 // call site:
 HT_USE(card, "Posts") {
     HT_P(class_ = "text-gray-600") { HT_TEXT("12 published."); }
 }
+
+// also valid — no children, slot is empty:
+card(os, "Standalone");
 ```
 
-### How `HT_USE` works
+### Slots can sit anywhere — including between siblings
 
-`HT_USE(name, args...)` expands to `if (auto _ht_use_ = name(os, args...); true) { ... }`. The returned `htpp::tag` lives until the end of the user's block; its destructor emits the closing markup *after* the children. The user's block writes to the same `os` already in scope — no lambdas, no callbacks.
+The slot doesn't have to be the last thing inside the wrapper. Content emitted *after* `HT_SLOT()` renders *after* the children:
 
-> **Note:** `htpp::tag` is movable but not move-assignable. The move ctor nulls the source so only one instance ever emits the closing tag. There is no hook for content *between* children and the closing tag — if you need that, the component needs a different RAII type.
+```cpp
+HT_COMPONENT(panel, std::string_view title) {
+    HT_DIV() {
+        HT_H2() { HT_TEXT(title); }
+        HT_SLOT();
+        HT_P() { os << "footer"; }       // emitted AFTER children
+    }
+}
+```
+
+### How it works
+
+`HT_USE` declares a `std::ostringstream`, shadows `os` to point at it for the duration of the user's block, and uses an `htpp::scope_exit` to call the component with the buffered string view as its trailing `_slot` argument once the block ends.
+
+`HT_SLOT()` itself is just `os << _slot`. Direct calls without children skip the buffering entirely (the default `_slot = {}` makes `HT_SLOT()` a no-op emit).
+
+> **Cost:** one `std::ostringstream` allocation per `HT_USE` call. Direct calls (`card(os, "Standalone")`) stay zero-alloc.
+
+### Gotchas
+
+- **Designated-initializer args with multiple fields will not compile** as written: the preprocessor splits on the inner comma. Wrap in extra parens or pass a named struct value:
+  ```cpp
+  HT_USE(card, (card_props{.title = "x", .body = "y"})) { ... }
+  ```
+- **Component params taking braced-init must be `const T&` or `T`** — a non-const lvalue reference can't bind to a `{...}` temporary.
+- **`HT_SLOT()` only compiles inside `HT_COMPONENT` bodies** (it references the hidden `_slot` parameter).
 
 ## Text & escaping
 
@@ -295,9 +305,11 @@ Available: `hx_get`, `hx_post`, `hx_put`, `hx_delete`, `hx_patch`, `hx_target`, 
 
 `HT_TEXT(expr)` — escaped output. `HT_RAW(expr)` — raw output.
 
-`HT_COMPONENT(name, ...)` — declares a component function.
+`HT_COMPONENT(name, ...)` — declares a component function (with a hidden `_slot` parameter).
 
-`HT_USE(name, ...)` — invokes a children-accepting component (one that returns an `htpp::tag`) with a trailing `{ ... }` block.
+`HT_SLOT()` — emit captured children at the current point inside an `HT_COMPONENT` body.
+
+`HT_USE(name, ...)` — invoke a component with a trailing `{ ... }` children block.
 
 ## Full example
 

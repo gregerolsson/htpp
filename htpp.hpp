@@ -22,6 +22,7 @@
 #include <array>
 #include <cstddef>
 #include <ostream>
+#include <sstream>
 #include <stdexcept>
 #include <string_view>
 #include <utility>
@@ -406,6 +407,17 @@ struct doctype {
     explicit doctype(std::ostream& os) { os << "<!DOCTYPE html>\n"; }
 };
 
+// ---------------------------------------------------------------------------
+// scope_exit — runs `fn` on destruction. Used by HT_USE to defer the
+// component invocation until after the user's children have been buffered.
+// ---------------------------------------------------------------------------
+template <typename Fn>
+struct scope_exit {
+    Fn fn;
+    ~scope_exit() { fn(); }
+};
+template <typename Fn> scope_exit(Fn) -> scope_exit<Fn>;
+
 } // namespace htpp
 
 // ---------------------------------------------------------------------------
@@ -515,31 +527,37 @@ struct doctype {
 #define HT_RAW(expr)    os << ::htpp::raw{(expr)}
 
 // ---------------------------------------------------------------------------
-// HT_COMPONENT — declares a void component function with `os` as first param.
+// HT_COMPONENT — declares a void component function with `os` as first param
+// and a hidden default-empty `_slot` parameter (a std::string_view holding
+// pre-rendered children, populated by HT_USE; HT_SLOT() emits it).
 //
-//   HT_COMPONENT(nav_link, std::string_view url, std::string_view label) {
-//       HT_A(class_ = "px-3 hover:underline", href = url) {
-//           HT_TEXT(label);
+//   HT_COMPONENT(card, std::string_view title) {
+//       HT_DIV(class_ = "card") {
+//           HT_H2() { HT_TEXT(title); }
+//           HT_SLOT();           // children land here, if any
 //       }
 //   }
 //
-//   // call site (os must be in scope):
-//   nav_link(os, "/about", "About");
+//   card(os, "Hello");                          // no children — slot is empty
+//   HT_USE(card, "Hello") { HT_TEXT("body"); }  // children buffered, spliced
 // ---------------------------------------------------------------------------
 #define HT_COMPONENT(name, ...) \
-    void name(std::ostream& os __VA_OPT__(,) __VA_ARGS__)
+    void name(std::ostream& os __VA_OPT__(,) __VA_ARGS__, [[maybe_unused]] ::std::string_view _slot = {})
+
+// HT_SLOT() — emit captured children at the current point in a HT_COMPONENT.
+#define HT_SLOT() (os << _slot)
 
 // ---------------------------------------------------------------------------
-// HT_USE — invoke a children-accepting component with a trailing block.
+// HT_USE — invoke a HT_COMPONENT with a trailing children block.
 //
-//   auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
-//       return htpp::tag(os, "a", class_ = "...", href = url);
-//   }
-//
-//   HT_USE(nav_link, "/about") { HT_TEXT("About"); }
-//
-// Expands to: if (auto _ht_use_ = nav_link(os, "/about"); true) { ... }
-// The component's destructor emits the closing markup after the block.
+// Captures the user's block into a std::ostringstream by shadowing `os`,
+// then on scope-exit calls the component with the buffered string view as
+// its trailing _slot argument. Allocates one ostringstream per call.
 // ---------------------------------------------------------------------------
 #define HT_USE(name, ...) \
-    if (auto _ht_use_ = name(os __VA_OPT__(,) __VA_ARGS__); true)
+    if (::std::ostringstream _slot_buf_; true) \
+    if (auto& _outer_os_ = os; true) \
+    if (::htpp::scope_exit _se_{[&]() -> void { \
+            name(_outer_os_ __VA_OPT__(,) __VA_ARGS__, _slot_buf_.view()); \
+        }}; true) \
+    if (auto& os = static_cast<::std::ostream&>(_slot_buf_); true)

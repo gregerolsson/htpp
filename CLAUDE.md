@@ -48,38 +48,39 @@ Three layers compose the DSL:
 - **Tag macros without `{ }` consume the next statement.** `HT_DIV(...)` expands to `if (...; true)` — without a block, the next statement becomes its body, which usually produces wrong-nesting HTML. Always pair `HT_DIV(...)` with `{ ... }` (use `{}` if you genuinely want an empty element). The current `example.cpp` uses `HT_TEXTAREA(...) {}` for exactly this reason.
 - **Watch for shadowing after `using namespace htpp::attr;`.** Common attribute identifiers (`name`, `id`, `value`, `type`, `size`, `min`, `max`, `start`, `step`, `title`, `label`, `form`, `dir`, `list`, `cite`) become globally visible and will shadow local variables of the same name. The example renames its row variables (`user_name` / `user_role`) for this reason. Either rename locals or scope the `using` to function-level.
 
-### Children-accepting components
+### Children-accepting components — `HT_SLOT()` + `HT_USE`
 
-`HT_COMPONENT` declares a `void` function with a fixed structure — the call site cannot inject children. To build a component that wraps user-supplied content, write a function (or class) whose returned RAII object closes the wrapping markup, and invoke it with `HT_USE(name, args...) { ...children... }`.
+Every `HT_COMPONENT` carries a hidden trailing parameter `std::string_view _slot` (defaulted to empty). Call `HT_SLOT()` anywhere inside the body to splice the captured children at that point. Invoke with children via `HT_USE(name, args...) { ...children... }`.
 
-- **Simple wrapper — function returning `htpp::tag`:**
-  ```cpp
-  auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
-      return {os, "a", class_ = "px-3 py-2 hover:underline", href = url};
-  }
-  // call site:
-  HT_USE(nav_link, "/about") { HT_TEXT("About"); }
-  ```
-  The brace-init form `return {os, "a", ...};` triggers mandatory prvalue copy elision (no move needed).
+```cpp
+HT_COMPONENT(card, std::string_view heading) {
+    HT_DIV(class_ = "rounded shadow p-4 bg-white") {
+        HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
+        HT_SLOT();                       // children land here, if any
+    }
+}
 
-- **Composite (prologue inside the wrapping tag):** declare the wrapping tag as a local, emit prologue, return the local. The named-return path uses the move ctor:
-  ```cpp
-  auto card(std::ostream& os, std::string_view heading) -> htpp::tag {
-      htpp::tag div(os, "div", class_ = "rounded shadow p-4 bg-white");
-      HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
-      return div;   // moves; div destructor on the moved-from instance is a no-op
-  }
-  ```
+HT_USE(card, "Posts") {
+    HT_P(class_ = "text-gray-600") { HT_TEXT("12 published."); }
+}
+```
 
-- **Class form (alternative):** for components used in many places, a class that inherits from `htpp::tag` makes "this is a children-accepting component" explicit at the type level and sidesteps any NRVO concerns:
-  ```cpp
-  struct nav_link : htpp::tag {
-      nav_link(std::ostream& os, std::string_view url)
-        : htpp::tag(os, "a", class_ = "px-3 py-2 hover:underline", href = url) {}
-  };
-  ```
-  Invoked the same way: `HT_USE(nav_link, "/about") { HT_TEXT("About"); }`.
+`HT_SLOT()` is just `os << _slot`; the slot can sit anywhere — including *between* sibling content, with epilogue still rendered after children:
 
-- **`htpp::tag` is movable but not move-assignable.** The move ctor nulls the source's `os_` so only one instance ever emits the closing tag. Don't try to reassign one tag with another — declare a fresh local instead.
+```cpp
+HT_COMPONENT(panel, std::string_view title) {
+    HT_DIV() {
+        HT_H2() { HT_TEXT(title); }
+        HT_SLOT();
+        HT_P() { os << "footer"; }       // emitted AFTER children
+    }
+}
+```
 
-- **No "after-children, before-close" hook.** A bare `htpp::tag` return only emits `</name>` after the user's block; there's no place to inject content between children and the closing tag. If a real use case appears, a templated `scoped_emit<Lambda>` could fill the gap allocation-free.
+Mechanics: `HT_USE` declares a `std::ostringstream`, shadows `os` to point at it for the duration of the user's block, and uses an `htpp::scope_exit` to call the component with `_slot_buf_.view()` once the block ends. **One `ostringstream` allocation per `HT_USE` call** — this is the only place htpp deviates from the no-intermediate-buffer rule, and only when children are passed.
+
+- **Calling without children stays zero-alloc.** `card(os, "Posts");` matches the `_slot = {}` default, `HT_SLOT()` emits an empty string. Direct calls bypass the buffer entirely.
+- **Designated-initializer args and the preprocessor.** `HT_USE(card, {.title = "x", .body = "y"})` will *not* compile — the preprocessor splits on the inner comma. Wrap in extra parens or pass a named struct: `HT_USE(card, (card_props{.title = "x", .body = "y"}))`.
+- **References must be const for braced-init args.** A non-const lvalue reference parameter (`card_props& props`) won't bind to a `{...}` temporary. Use `const card_props&` (or pass by value).
+- **`HT_SLOT()` requires `os` and `_slot` in scope** — i.e., it only makes sense inside an `HT_COMPONENT` body. Using it elsewhere is a compile error.
+- **Args are evaluated lazily.** `HT_USE`'s scope-exit lambda re-evaluates the argument list when it fires (after the user's block). Side-effecting arg expressions run once, at scope-exit time, not at the start of the block.
