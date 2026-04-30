@@ -175,6 +175,48 @@ HT_COMPONENT(user_table,
 }
 ```
 
+## Components with children
+
+Plain `HT_COMPONENT` functions can't accept a children block — every "slot" has to be a parameter. To wrap user-supplied content, define a function that returns an `htpp::tag` (or a class deriving from it) and invoke it with `HT_USE(name, args...) { ... }`.
+
+### Simple wrapper
+
+For a component that just wraps children in a single tag, return the tag directly:
+
+```cpp
+auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
+    return {os, "a", class_ = "px-3 py-2 hover:underline", href = url};
+}
+
+// call site:
+HT_USE(nav_link, "/about") { HT_TEXT("About"); }
+```
+
+The brace-init `return {os, "a", ...};` is a prvalue, so mandatory copy elision applies — no move, no allocation.
+
+### Composite (prologue inside the wrapping tag)
+
+If the component needs to emit content *before* children but *inside* the wrapping element, declare the wrapping tag as a local, emit the prologue, then return the local:
+
+```cpp
+auto card(std::ostream& os, std::string_view heading) -> htpp::tag {
+    htpp::tag div(os, "div", class_ = "rounded shadow p-4 bg-white");
+    HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
+    return div;   // moves; the moved-from local's destructor is a no-op
+}
+
+// call site:
+HT_USE(card, "Posts") {
+    HT_P(class_ = "text-gray-600") { HT_TEXT("12 published."); }
+}
+```
+
+### How `HT_USE` works
+
+`HT_USE(name, args...)` expands to `if (auto _ht_use_ = name(os, args...); true) { ... }`. The returned `htpp::tag` lives until the end of the user's block; its destructor emits the closing markup *after* the children. The user's block writes to the same `os` already in scope — no lambdas, no callbacks.
+
+> **Note:** `htpp::tag` is movable but not move-assignable. The move ctor nulls the source so only one instance ever emits the closing tag. There is no hook for content *between* children and the closing tag — if you need that, the component needs a different RAII type.
+
 ## Text & escaping
 
 | Macro | Escapes? | Use for |
@@ -254,6 +296,8 @@ Available: `hx_get`, `hx_post`, `hx_put`, `hx_delete`, `hx_patch`, `hx_target`, 
 `HT_TEXT(expr)` — escaped output. `HT_RAW(expr)` — raw output.
 
 `HT_COMPONENT(name, ...)` — declares a component function.
+
+`HT_USE(name, ...)` — invokes a children-accepting component (one that returns an `htpp::tag`) with a trailing `{ ... }` block.
 
 ## Full example
 

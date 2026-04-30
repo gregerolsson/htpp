@@ -47,3 +47,39 @@ Three layers compose the DSL:
 - **Void tags are statements, not blocks.** `HT_BR()`, `HT_HR()`, `HT_IMG(...)`, `HT_INPUT(...)`, `HT_META(...)`, `HT_LINK(...)` expand to a `void_tag{...}` expression and require a trailing `;`. Do not follow them with `{ ... }`.
 - **Tag macros without `{ }` consume the next statement.** `HT_DIV(...)` expands to `if (...; true)` — without a block, the next statement becomes its body, which usually produces wrong-nesting HTML. Always pair `HT_DIV(...)` with `{ ... }` (use `{}` if you genuinely want an empty element). The current `example.cpp` uses `HT_TEXTAREA(...) {}` for exactly this reason.
 - **Watch for shadowing after `using namespace htpp::attr;`.** Common attribute identifiers (`name`, `id`, `value`, `type`, `size`, `min`, `max`, `start`, `step`, `title`, `label`, `form`, `dir`, `list`, `cite`) become globally visible and will shadow local variables of the same name. The example renames its row variables (`user_name` / `user_role`) for this reason. Either rename locals or scope the `using` to function-level.
+
+### Children-accepting components
+
+`HT_COMPONENT` declares a `void` function with a fixed structure — the call site cannot inject children. To build a component that wraps user-supplied content, write a function (or class) whose returned RAII object closes the wrapping markup, and invoke it with `HT_USE(name, args...) { ...children... }`.
+
+- **Simple wrapper — function returning `htpp::tag`:**
+  ```cpp
+  auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
+      return {os, "a", class_ = "px-3 py-2 hover:underline", href = url};
+  }
+  // call site:
+  HT_USE(nav_link, "/about") { HT_TEXT("About"); }
+  ```
+  The brace-init form `return {os, "a", ...};` triggers mandatory prvalue copy elision (no move needed).
+
+- **Composite (prologue inside the wrapping tag):** declare the wrapping tag as a local, emit prologue, return the local. The named-return path uses the move ctor:
+  ```cpp
+  auto card(std::ostream& os, std::string_view heading) -> htpp::tag {
+      htpp::tag div(os, "div", class_ = "rounded shadow p-4 bg-white");
+      HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
+      return div;   // moves; div destructor on the moved-from instance is a no-op
+  }
+  ```
+
+- **Class form (alternative):** for components used in many places, a class that inherits from `htpp::tag` makes "this is a children-accepting component" explicit at the type level and sidesteps any NRVO concerns:
+  ```cpp
+  struct nav_link : htpp::tag {
+      nav_link(std::ostream& os, std::string_view url)
+        : htpp::tag(os, "a", class_ = "px-3 py-2 hover:underline", href = url) {}
+  };
+  ```
+  Invoked the same way: `HT_USE(nav_link, "/about") { HT_TEXT("About"); }`.
+
+- **`htpp::tag` is movable but not move-assignable.** The move ctor nulls the source's `os_` so only one instance ever emits the closing tag. Don't try to reassign one tag with another — declare a fresh local instead.
+
+- **No "after-children, before-close" hook.** A bare `htpp::tag` return only emits `</name>` after the user's block; there's no place to inject content between children and the closing tag. If a real use case appears, a templated `scoped_emit<Lambda>` could fill the gap allocation-free.

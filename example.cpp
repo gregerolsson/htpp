@@ -15,17 +15,16 @@ using namespace htpp::attr_literals;   // "data-x"_a = "..."
 // Attributes can appear in any order at the call site.
 // ---------------------------------------------------------------------------
 
-HT_COMPONENT(nav_link, std::string_view url, std::string_view text) {
-    HT_A(class_ = "px-3 py-2 hover:underline", href = url) {
-        HT_TEXT(text);
-    }
+auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
+    return {os, "a",
+            class_ = "px-3 py-2 hover:underline",
+            href = url};
 }
 
-HT_COMPONENT(card, std::string_view heading, std::string_view body) {
-    HT_DIV(class_ = "rounded shadow p-4 bg-white") {
-        HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
-        HT_P (class_ = "text-gray-600")          { HT_TEXT(body);    }
-    }
+auto card(std::ostream& os, std::string_view heading) -> htpp::tag {
+    htpp::tag div(os, "div", class_ = "rounded shadow p-4 bg-white");
+    HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
+    return div;
 }
 
 HT_COMPONENT(user_table,
@@ -70,9 +69,9 @@ HT_COMPONENT(page, const std::string& username, bool is_submitting) {
         HT_BODY(class_ = "bg-gray-50 font-sans") {
 
             HT_HEADER(class_ = "bg-blue-600 text-white p-4 flex gap-4") {
-                nav_link(os, "/",       "Home");
-                nav_link(os, "/about",  "About");
-                nav_link(os, "/logout", "Logout");
+                HT_USE(nav_link, "/")       { HT_TEXT("Home");   }
+                HT_USE(nav_link, "/about")  { HT_TEXT("About");  }
+                HT_USE(nav_link, "/logout") { HT_TEXT("Logout"); }
             }
 
             HT_MAIN(class_ = "max-w-3xl mx-auto mt-8 px-4 space-y-6") {
@@ -84,8 +83,12 @@ HT_COMPONENT(page, const std::string& username, bool is_submitting) {
                 }
 
                 HT_DIV(class_ = "grid grid-cols-2 gap-4") {
-                    card(os, "Posts",    "You have 12 published posts.");
-                    card(os, "Comments", "3 comments need moderation.");
+                    HT_USE(card, "Posts") {
+                        HT_P(class_ = "text-gray-600") { HT_TEXT("You have 12 published posts."); }
+                    }
+                    HT_USE(card, "Comments") {
+                        HT_P(class_ = "text-gray-600") { HT_TEXT("3 comments need moderation."); }
+                    }
                 }
 
                 HT_SECTION() {

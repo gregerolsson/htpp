@@ -287,6 +287,42 @@ card(os, <span class="str">"Title"</span>, <span class="str">"Description text."
 }</code></pre>
 </section>
 
+<!-- ============================================================ Components with children -->
+<section>
+<h2>Components with children</h2>
+<p>Plain <code>HT_COMPONENT</code> functions can&rsquo;t accept a children block &mdash; every &ldquo;slot&rdquo; has to be a parameter. To wrap user-supplied content, define a function that returns an <code>htpp::tag</code> (or a class deriving from it) and invoke it with <code>HT_USE(name, args...) { ... }</code>.</p>
+
+<h3>Simple wrapper</h3>
+<p>For a component that just wraps children in a single tag, return the tag directly:</p>
+<pre><code><span class="kw">auto</span> <span class="fn">nav_link</span>(std::ostream&amp; os, std::string_view url) -&gt; htpp::tag {
+    <span class="kw">return</span> {os, <span class="str">"a"</span>, class_ = <span class="str">"px-3 py-2 hover:underline"</span>, href = url};
+}
+
+<span class="cmt">// call site:</span>
+<span class="mac">HT_USE</span>(nav_link, <span class="str">"/about"</span>) { <span class="mac">HT_TEXT</span>(<span class="str">"About"</span>); }</code></pre>
+<p>The brace-init <code>return {os, "a", ...};</code> is a prvalue, so mandatory copy elision applies &mdash; no move, no allocation.</p>
+
+<h3>Composite (prologue inside the wrapping tag)</h3>
+<p>If the component needs to emit content <em>before</em> children but <em>inside</em> the wrapping element, declare the wrapping tag as a local, emit the prologue, then return the local:</p>
+<pre><code><span class="kw">auto</span> <span class="fn">card</span>(std::ostream&amp; os, std::string_view heading) -&gt; htpp::tag {
+    htpp::tag div(os, <span class="str">"div"</span>, class_ = <span class="str">"rounded shadow p-4 bg-white"</span>);
+    <span class="mac">HT_H2</span>(class_ = <span class="str">"text-lg font-bold mb-2"</span>) { <span class="mac">HT_TEXT</span>(heading); }
+    <span class="kw">return</span> div;   <span class="cmt">// moves; the moved-from local's destructor is a no-op</span>
+}
+
+<span class="cmt">// call site:</span>
+<span class="mac">HT_USE</span>(card, <span class="str">"Posts"</span>) {
+    <span class="mac">HT_P</span>(class_ = <span class="str">"text-gray-600"</span>) { <span class="mac">HT_TEXT</span>(<span class="str">"12 published."</span>); }
+}</code></pre>
+
+<h3>How <code>HT_USE</code> works</h3>
+<p><code>HT_USE(name, args...)</code> expands to <code>if (auto _ht_use_ = name(os, args...); true) { ... }</code>. The returned <code>htpp::tag</code> lives until the end of the user&rsquo;s block; its destructor emits the closing markup <em>after</em> the children. The user&rsquo;s block writes to the same <code>os</code> already in scope &mdash; no lambdas, no callbacks.</p>
+
+<div class="callout">
+<strong>Note:</strong> <code>htpp::tag</code> is movable but not move-assignable. The move ctor nulls the source so only one instance ever emits the closing tag. There is no hook for content <em>between</em> children and the closing tag &mdash; if you need that, the component needs a different RAII type.
+</div>
+</section>
+
 <!-- ============================================================ Escaping -->
 <section>
 <h2>Text &amp; escaping</h2>
@@ -371,6 +407,7 @@ card(os, <span class="str">"Title"</span>, <span class="str">"Description text."
 <h3>Content</h3>
 <p><code>HT_TEXT(expr)</code> &mdash; escaped output. <code>HT_RAW(expr)</code> &mdash; raw output.</p>
 <p><code>HT_COMPONENT(name, ...)</code> &mdash; declares a component function.</p>
+<p><code>HT_USE(name, ...)</code> &mdash; invokes a children-accepting component (one that returns an <code>htpp::tag</code>) with a trailing <code>{ ... }</code> block.</p>
 </section>
 
 <!-- ============================================================ Full example -->

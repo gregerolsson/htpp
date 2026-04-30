@@ -370,17 +370,20 @@ class tag {
 public:
     template <typename... Attrs>
     tag(std::ostream& os, std::string_view name, const Attrs&... attrs)
-        : os_(os), name_(name)
+        : os_(&os), name_(name)
     {
-        os_ << '<' << name_;
-        (void)(os_ << ... << attrs);   // (void) silences -Wunused-value when pack is empty
-        os_ << '>';
+        os << '<' << name_;
+        (void)(os << ... << attrs);   // (void) silences -Wunused-value when pack is empty
+        os << '>';
     }
     tag(const tag&)                     = delete;
     auto operator=(const tag&) -> tag&  = delete;
-    ~tag() { os_ << "</" << name_ << '>'; }
+    tag(tag&& other) noexcept
+        : os_(std::exchange(other.os_, nullptr)), name_(other.name_) {}
+    auto operator=(tag&&) -> tag&       = delete;
+    ~tag() { if (os_) { *os_ << "</" << name_ << '>'; } }
 private:
-    std::ostream&    os_;
+    std::ostream*    os_;
     std::string_view name_;
 };
 
@@ -525,3 +528,18 @@ struct doctype {
 // ---------------------------------------------------------------------------
 #define HT_COMPONENT(name, ...) \
     void name(std::ostream& os __VA_OPT__(,) __VA_ARGS__)
+
+// ---------------------------------------------------------------------------
+// HT_USE — invoke a children-accepting component with a trailing block.
+//
+//   auto nav_link(std::ostream& os, std::string_view url) -> htpp::tag {
+//       return htpp::tag(os, "a", class_ = "...", href = url);
+//   }
+//
+//   HT_USE(nav_link, "/about") { HT_TEXT("About"); }
+//
+// Expands to: if (auto _ht_use_ = nav_link(os, "/about"); true) { ... }
+// The component's destructor emits the closing markup after the block.
+// ---------------------------------------------------------------------------
+#define HT_USE(name, ...) \
+    if (auto _ht_use_ = name(os __VA_OPT__(,) __VA_ARGS__); true)
