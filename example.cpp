@@ -15,12 +15,14 @@ using namespace htpp::attr_literals;   // "data-x"_a = "..."
 // Attributes can appear in any order at the call site.
 // ---------------------------------------------------------------------------
 
+HT_COMPONENT_DECL(nav_link, std::string_view url);
 HT_COMPONENT(nav_link, std::string_view url) {
     HT_A(class_ = "px-3 py-2 hover:underline", href = url) {
         HT_SLOT();
     }
 }
 
+HT_COMPONENT_DECL(card, std::string_view heading);
 HT_COMPONENT(card, std::string_view heading) {
     HT_DIV(class_ = "rounded shadow p-4 bg-white") {
         HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
@@ -32,6 +34,7 @@ HT_COMPONENT(card, std::string_view heading) {
 // the middle of the rendered output, not just at the end.
 struct demo_card_props { std::string_view title; };
 
+HT_COMPONENT_DECL(demo_card, const demo_card_props& props);
 HT_COMPONENT(demo_card, const demo_card_props& props) {
     HT_DIV() {
         HT_H2() { HT_TEXT(props.title); }
@@ -40,6 +43,8 @@ HT_COMPONENT(demo_card, const demo_card_props& props) {
     }
 }
 
+HT_COMPONENT_DECL(user_table,
+                  const std::vector<std::pair<std::string, std::string>>& users);
 HT_COMPONENT(user_table,
              const std::vector<std::pair<std::string, std::string>>& users) {
     HT_TABLE(class_ = "w-full border-collapse text-left") {
@@ -64,6 +69,7 @@ HT_COMPONENT(user_table,
 // Full page template
 // ---------------------------------------------------------------------------
 
+HT_COMPONENT_DECL(page, const std::string& username, bool is_submitting);
 HT_COMPONENT(page, const std::string& username, bool is_submitting) {
     std::vector<std::pair<std::string, std::string>> users = {
         {"Alice",                "Admin"},

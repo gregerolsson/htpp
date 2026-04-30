@@ -253,8 +253,12 @@
 <!-- ============================================================ Components -->
 <section>
 <h2>Components</h2>
-<p><code>HT_COMPONENT</code> declares a plain function with <code>std::ostream&amp; os</code> as the first parameter. Compose them like regular function calls:</p>
-<pre><code><span class="mac">HT_COMPONENT</span>(<span class="fn">card</span>, std::string_view heading, std::string_view body) {
+<p><code>HT_COMPONENT_DECL</code> forward-declares a component &mdash; normally in a header alongside the rest of the public API. <code>HT_COMPONENT</code> provides the definition in the <code>.cpp</code>. The default argument on the hidden <code>_slot</code> parameter lives on the declaration, so all callers that include the header can omit it.</p>
+<pre><code><span class="cmt">// components.hh &mdash; forward declarations live here</span>
+<span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">card</span>, std::string_view heading, std::string_view body);
+
+<span class="cmt">// components.cpp</span>
+<span class="mac">HT_COMPONENT</span>(<span class="fn">card</span>, std::string_view heading, std::string_view body) {
     <span class="mac">HT_DIV</span>(class_ = <span class="str">"rounded shadow p-4"</span>) {
         <span class="mac">HT_H2</span>(class_ = <span class="str">"font-bold"</span>) { <span class="mac">HT_TEXT</span>(heading); }
         <span class="mac">HT_P</span>()                     { <span class="mac">HT_TEXT</span>(body); }
@@ -265,7 +269,10 @@
 card(os, <span class="str">"Title"</span>, <span class="str">"Description text."</span>);</code></pre>
 
 <p>Components are just functions. Use loops, conditionals, and other components inside them freely:</p>
-<pre><code><span class="mac">HT_COMPONENT</span>(<span class="fn">user_table</span>,
+<pre><code><span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">user_table</span>,
+    <span class="kw">const</span> std::vector&lt;std::pair&lt;std::string, std::string&gt;&gt;&amp; users);
+
+<span class="mac">HT_COMPONENT</span>(<span class="fn">user_table</span>,
     <span class="kw">const</span> std::vector&lt;std::pair&lt;std::string, std::string&gt;&gt;&amp; users)
 {
     <span class="mac">HT_TABLE</span>(class_ = <span class="str">"w-full"</span>) {
@@ -290,9 +297,11 @@ card(os, <span class="str">"Title"</span>, <span class="str">"Description text."
 <!-- ============================================================ Components with children -->
 <section>
 <h2>Components with children</h2>
-<p>Every <code>HT_COMPONENT</code> carries a hidden trailing parameter &mdash; <code>std::string_view _slot</code>, defaulted to empty. Call <code>HT_SLOT()</code> anywhere inside the body to splice the children at that point. Invoke with children via <code>HT_USE(name, args...) { ...children... }</code>.</p>
+<p><code>HT_COMPONENT_DECL</code> adds a hidden trailing parameter &mdash; <code>std::string_view _slot</code>, defaulted to empty &mdash; so callers can omit it. Call <code>HT_SLOT()</code> anywhere inside the body to splice the children at that point. Invoke with children via <code>HT_USE(name, args...) { ...children... }</code>.</p>
 
-<pre><code><span class="mac">HT_COMPONENT</span>(<span class="fn">card</span>, std::string_view heading) {
+<pre><code><span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">card</span>, std::string_view heading);
+
+<span class="mac">HT_COMPONENT</span>(<span class="fn">card</span>, std::string_view heading) {
     <span class="mac">HT_DIV</span>(class_ = <span class="str">"rounded shadow p-4 bg-white"</span>) {
         <span class="mac">HT_H2</span>(class_ = <span class="str">"text-lg font-bold mb-2"</span>) { <span class="mac">HT_TEXT</span>(heading); }
         <span class="mac">HT_SLOT</span>();                       <span class="cmt">// children land here, if any</span>
@@ -309,7 +318,9 @@ card(os, <span class="str">"Standalone"</span>);</code></pre>
 
 <h3>Slots can sit anywhere &mdash; including between siblings</h3>
 <p>The slot doesn&rsquo;t have to be the last thing inside the wrapper. Content emitted <em>after</em> <code>HT_SLOT()</code> renders <em>after</em> the children:</p>
-<pre><code><span class="mac">HT_COMPONENT</span>(<span class="fn">panel</span>, std::string_view title) {
+<pre><code><span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">panel</span>, std::string_view title);
+
+<span class="mac">HT_COMPONENT</span>(<span class="fn">panel</span>, std::string_view title) {
     <span class="mac">HT_DIV</span>() {
         <span class="mac">HT_H2</span>() { <span class="mac">HT_TEXT</span>(title); }
         <span class="mac">HT_SLOT</span>();
@@ -419,7 +430,8 @@ card(os, <span class="str">"Standalone"</span>);</code></pre>
 
 <h3>Content</h3>
 <p><code>HT_TEXT(expr)</code> &mdash; escaped output. <code>HT_RAW(expr)</code> &mdash; raw output.</p>
-<p><code>HT_COMPONENT(name, ...)</code> &mdash; declares a component function (with a hidden <code>_slot</code> parameter).</p>
+<p><code>HT_COMPONENT_DECL(name, ...)</code> &mdash; forward-declares a component (normally in a header); adds hidden <code>_slot = {}</code> default.</p>
+<p><code>HT_COMPONENT(name, ...)</code> &mdash; defines a component (requires a prior <code>HT_COMPONENT_DECL</code>).</p>
 <p><code>HT_SLOT()</code> &mdash; emit captured children at the current point inside an <code>HT_COMPONENT</code> body.</p>
 <p><code>HT_USE(name, ...)</code> &mdash; invoke a component with a trailing <code>{ ... }</code> children block.</p>
 </section>
@@ -435,6 +447,11 @@ card(os, <span class="str">"Standalone"</span>);</code></pre>
 
 <span class="kw">using namespace</span> htpp::attr;
 <span class="kw">using namespace</span> htpp::attr_literals;
+
+<span class="cmt">// Forward declarations &mdash; normally in a shared header:</span>
+<span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">nav_link</span>, std::string_view url, std::string_view text);
+<span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">card</span>, std::string_view heading, std::string_view body);
+<span class="mac">HT_COMPONENT_DECL</span>(<span class="fn">page</span>, <span class="kw">const</span> std::string&amp; username, <span class="kw">bool</span> is_submitting);
 
 <span class="mac">HT_COMPONENT</span>(<span class="fn">nav_link</span>, std::string_view url, std::string_view text) {
     <span class="mac">HT_A</span>(class_ = <span class="str">"px-3 py-2 hover:underline"</span>, href = url) {

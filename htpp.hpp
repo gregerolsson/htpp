@@ -527,10 +527,18 @@ template <typename Fn> scope_exit(Fn) -> scope_exit<Fn>;
 #define HT_RAW(expr)    os << ::htpp::raw{(expr)}
 
 // ---------------------------------------------------------------------------
-// HT_COMPONENT — declares a void component function with `os` as first param
-// and a hidden default-empty `_slot` parameter (a std::string_view holding
-// pre-rendered children, populated by HT_USE; HT_SLOT() emits it).
+// HT_COMPONENT_DECL — forward-declares a component in a header. The default
+// argument on `_slot` must live on the declaration, so use this macro in
+// .hh/.hpp files and HT_COMPONENT for the .cc/.cpp definition.
 //
+// HT_COMPONENT — defines a component function. Requires a prior
+// HT_COMPONENT_DECL (in an included header) so that callers see the default
+// argument for `_slot`.
+//
+//   // foo.hh
+//   HT_COMPONENT_DECL(card, std::string_view title);
+//
+//   // foo.cc
 //   HT_COMPONENT(card, std::string_view title) {
 //       HT_DIV(class_ = "card") {
 //           HT_H2() { HT_TEXT(title); }
@@ -541,8 +549,11 @@ template <typename Fn> scope_exit(Fn) -> scope_exit<Fn>;
 //   card(os, "Hello");                          // no children — slot is empty
 //   HT_USE(card, "Hello") { HT_TEXT("body"); }  // children buffered, spliced
 // ---------------------------------------------------------------------------
+#define HT_COMPONENT_DECL(name, ...) \
+    void name(std::ostream& os __VA_OPT__(,) __VA_ARGS__, ::std::string_view _slot = {})
+
 #define HT_COMPONENT(name, ...) \
-    void name(std::ostream& os __VA_OPT__(,) __VA_ARGS__, [[maybe_unused]] ::std::string_view _slot = {})
+    void name(std::ostream& os __VA_OPT__(,) __VA_ARGS__, [[maybe_unused]] ::std::string_view _slot)
 
 // HT_SLOT() — emit captured children at the current point in a HT_COMPONENT.
 #define HT_SLOT() (os << _slot)

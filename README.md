@@ -136,9 +136,13 @@ inline constexpr attr_key<"my-attr"> my_attr;
 
 ## Components
 
-`HT_COMPONENT` declares a plain function with `std::ostream& os` as the first parameter. Compose them like regular function calls:
+`HT_COMPONENT_DECL` forward-declares a component — normally in a header alongside the rest of the public API. `HT_COMPONENT` provides the definition in the `.cpp`. The default argument on the hidden `_slot` parameter lives on the declaration, so all callers that include the header can omit it.
 
 ```cpp
+// components.hh — forward declarations live here
+HT_COMPONENT_DECL(card, std::string_view heading, std::string_view body);
+
+// components.cpp
 HT_COMPONENT(card, std::string_view heading, std::string_view body) {
     HT_DIV(class_ = "rounded shadow p-4") {
         HT_H2(class_ = "font-bold") { HT_TEXT(heading); }
@@ -153,6 +157,9 @@ card(os, "Title", "Description text.");
 Components are just functions. Use loops, conditionals, and other components inside them freely:
 
 ```cpp
+HT_COMPONENT_DECL(user_table,
+    const std::vector<std::pair<std::string, std::string>>& users);
+
 HT_COMPONENT(user_table,
     const std::vector<std::pair<std::string, std::string>>& users)
 {
@@ -177,9 +184,11 @@ HT_COMPONENT(user_table,
 
 ## Components with children
 
-Every `HT_COMPONENT` carries a hidden trailing parameter — `std::string_view _slot`, defaulted to empty. Call `HT_SLOT()` anywhere inside the body to splice the children at that point. Invoke with children via `HT_USE(name, args...) { ...children... }`.
+`HT_COMPONENT_DECL` adds a hidden trailing parameter — `std::string_view _slot`, defaulted to empty — so callers can omit it. Call `HT_SLOT()` anywhere inside the body to splice the children at that point. Invoke with children via `HT_USE(name, args...) { ...children... }`.
 
 ```cpp
+HT_COMPONENT_DECL(card, std::string_view heading);
+
 HT_COMPONENT(card, std::string_view heading) {
     HT_DIV(class_ = "rounded shadow p-4 bg-white") {
         HT_H2(class_ = "text-lg font-bold mb-2") { HT_TEXT(heading); }
@@ -201,6 +210,8 @@ card(os, "Standalone");
 The slot doesn't have to be the last thing inside the wrapper. Content emitted *after* `HT_SLOT()` renders *after* the children:
 
 ```cpp
+HT_COMPONENT_DECL(panel, std::string_view title);
+
 HT_COMPONENT(panel, std::string_view title) {
     HT_DIV() {
         HT_H2() { HT_TEXT(title); }
@@ -305,7 +316,9 @@ Available: `hx_get`, `hx_post`, `hx_put`, `hx_delete`, `hx_patch`, `hx_target`, 
 
 `HT_TEXT(expr)` — escaped output. `HT_RAW(expr)` — raw output.
 
-`HT_COMPONENT(name, ...)` — declares a component function (with a hidden `_slot` parameter).
+`HT_COMPONENT_DECL(name, ...)` — forward-declares a component (normally in a header); adds hidden `_slot = {}` default.
+
+`HT_COMPONENT(name, ...)` — defines a component (requires a prior `HT_COMPONENT_DECL`).
 
 `HT_SLOT()` — emit captured children at the current point inside an `HT_COMPONENT` body.
 
@@ -322,6 +335,11 @@ Available: `hx_get`, `hx_post`, `hx_put`, `hx_delete`, `hx_patch`, `hx_target`, 
 
 using namespace htpp::attr;
 using namespace htpp::attr_literals;
+
+// Forward declarations — normally in a shared header:
+HT_COMPONENT_DECL(nav_link, std::string_view url, std::string_view text);
+HT_COMPONENT_DECL(card, std::string_view heading, std::string_view body);
+HT_COMPONENT_DECL(page, const std::string& username, bool is_submitting);
 
 HT_COMPONENT(nav_link, std::string_view url, std::string_view text) {
     HT_A(class_ = "px-3 py-2 hover:underline", href = url) {
